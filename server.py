@@ -1,49 +1,68 @@
 import socket
 import threading
 
-# Server settings
-HOST = '127.0.0.1'  # Localhost
-PORT = 12345        # Port to listen on
+# Connection Details
+HOST = '127.0.0.1'
+PORT = 12345
 
-# List to keep track of all connected clients
+# Initialising list of connected clients and aliases and locks
 clients = []
+aliases = []
+lock = threading.Lock()
 
-# Function to handle client connections
-def handle_client(client_socket):
+# Broadcast messages to all clients in the chatroom
+def broadcast_messages(message, sender_socket=None):
+    with lock:
+        for client in clients:
+            if client != sender_socket:
+                client.send(message)
+
+# Handle client messages and statuses
+def handle_client(client):
     while True:
         try:
-            message = client_socket.recv(1024).decode('utf-8')
-            if not message:
-                break
-            print(f"Received message: {message}")
-            broadcast(message, client_socket)
+            message = client.recv(1024)
+            broadcast_messages(message, client)
         except:
-            clients.remove(client_socket)
-            client_socket.close()
-            break
-
-# Function to broadcast messages to all connected clients
-def broadcast(message, client_socket):
-    for client in clients:
-        if client != client_socket:
-            try:
-                client.send(message.encode('utf-8'))
-            except:
+            with lock:
+                index = clients.index(client)
                 clients.remove(client)
                 client.close()
+                alias = aliases.pop(index)
 
-# Main function to accept new client connections
-def main():
+            broadcast_messages(f'{alias} has left the chatroom!'.encode('utf-8'))
+
+            if aliases:
+                print(f'Connected clients: {", ".join(aliases)}')
+            else:
+                print("No Connected Clients.")
+
+            break
+
+# Initialisation of connections and threads and handling clients
+def initialise_socket():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, PORT))
-    server.listen(5)
-    print("Server started, waiting for connections...")
+    server.listen()
+
+    print('Server has initialised.')
 
     while True:
-        client_socket, addr = server.accept()
-        print(f"Accepted connection from {addr}")
-        clients.append(client_socket)
-        threading.Thread(target=handle_client, args=(client_socket,)).start()
+        client, address = server.accept()
+
+        alias = client.recv(1024).decode('utf-8')
+        with lock:
+            aliases.append(alias)
+            clients.append(client)
+
+        print(f'Connected clients: {", ".join(aliases)}')
+
+        client.send(f'Welcome {alias} to the chatroom.'.encode('utf-8'))
+        broadcast_messages(f'{alias} has joined the chatroom!'.encode('utf-8'), client)
+
+        thread = threading.Thread(target=handle_client, args=(client,))
+        thread.start()
+
 
 if __name__ == "__main__":
-    main()
+    initialise_socket()
