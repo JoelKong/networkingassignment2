@@ -1,0 +1,41 @@
+Application Layer: http
+HTTP/1.1 200 OK\r\n
+
+Transport Layer: TCP
+Src Port: 80, Dst Port: 52207, Seq: 1, Ack: 427, Len: 1023
+
+Network Layer: IPV4 src 93.184.215.14, dst 172.30.137.217
+Data Link Layer:
+Ethernet II, Src: Cisco_5e:7f:c0 (18:9c:5d:5e:7f:c0), Dst: Intel_74:8b:d7 (64:49:7d:74:8b:d7)
+
+
+2.8)
+data link
+header: 64 49 7d 74 8b d7 18 9c 5d 5e 7f c0 08 00
+dst:    64 49 7d 74 8b d7
+src:    18 9c 5d 5e 7f c0
+
+
+2.9)
+network layer
+header: 45 00 04 27 d3 3f 00 00 33 06 45 d3 5d b8 d7 0e
+		ac 1e 89 d9
+
+
+ip src(hex): 5d b8 d7 0e
+ip src(dotted decimal): 93.184.215.14
+
+ip dst(hex): ac 1e 89 d9
+ip src(dotted decimal): 172.30.137.217
+
+2.10)
+Transport Layer
+header:
+00 50 cb ef c7 03 5e 71 69 4a 4b c9 50 18 00 83
+02 72 00 00
+
+src(hex): 00 50
+src(dec): 80
+
+dst(hex): cb ef
+dst(decc): 52207
