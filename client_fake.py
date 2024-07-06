@@ -2,60 +2,84 @@ import socket
 import threading
 import sys
 import queue
-from openai import OpenAI
 import time
 import random
 import os
 from dotenv import load_dotenv
+from openai import OpenAI
 
+
+# Load openai env variable
 load_dotenv()
 
-# Configuration
+
+# Connection Details for TCP Connections
 HOST = '127.0.0.1'
 PORT = 12345
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 # List of random names for the AI alias
 aliases = ["Xuan Ying", "Ging Yi", "Michael", "Anna", "Charity", "Kar Wai", "Zephan", "Izzan", "Mabel", "Xin Xue", "Danzel", "Vicki", "Nikki", "Raynen", "Tristan", "Russell", "Ignatius", "Douglas", "Jacky", "Mike", "Harvey", "Donna", "KahWah", "Angela", "Kai Yuan", "Fiona"]
 alias = random.choice(aliases)
 
+
 # Queue for managing incoming messages (limited to 5 messages)
 message_queue = queue.Queue(maxsize=5)
 
-# Function to receive messages from the server
+
+# Receive messages from the server
 def receive_messages(client_socket):
     while True:
         try:
             message = client_socket.recv(1024).decode('utf-8')
             if message:
+                # Remove the oldest message if the queue is full
                 if message_queue.full():
-                    message_queue.get()  # Remove the oldest message if the queue is full
-                message_queue.put(message)  # Add message to the queue
-                sys.stdout.write('\r' + message + '\n>> ')
+                    message_queue.get() 
+                message_queue.put(message)
+                sys.stdout.write('\r' + message + '\n\n>> ')
                 sys.stdout.flush()
-        except:
-            print("An error occurred.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
             client_socket.close()
             break
 
-# Function to generate responses using OpenAI
-def generate_response(messages):
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        frequency_penalty=1,
-        max_tokens=30,
-        n=1,
-        temperature=0.55
-    )
-    return response.choices[0].message.content
 
-# Function to handle the AI client
+# Generate response using OpenAI
+def generate_response(messages):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            frequency_penalty=1,
+            max_tokens=30,
+            n=1,
+            temperature=0.55
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return
+
+
+# Simulate typing
+def type_simulation(text, type=None):
+    for char in text:
+        sys.stdout.write(char)
+        sys.stdout.flush()
+        time.sleep(random.uniform(0.1, 0.15))
+    if type == "keep":    
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+
+# Handle the AI personality
 def ai_client(client_socket, alias):
     while True:
         if not message_queue.empty():
-            time.sleep(random.randint(10, 20))
-            chat_history = [{"role": "system", "content": f"""You are a normal Singaporean who must act as human and as singaporean as possible to interact with other people in the chatroom. Your personality is an average university student studying in the Singapore Institute of Technology majoring in software engineering. 
+            time.sleep(random.randint(5, 10))
+            chat_history = [{"role": "system", "content": f"""You are a normal Singaporean who musbut t act as human and as singaporean as possible to interact with other people in the chatroom. Your personality is an average university student studying in the Singapore Institute of Technology majoring in software engineering. 
                             You enjoy playing a wide variety of games such as Valorant or League of Legends, gymming, enjoy hanging out with friends, cafe hopping or watching anime. Your name is {alias} and the user messages passed to you are in the form of a chatroom. System messages will be shown to you such as when a new person joins the chatroom. User messages will be given in the form of their name being displayed first followed by a colon. You do not know anyone in the chatroom in real life. 
                             Do not sound like an AI. STRICTLY do not address anyone's names when you give your response and do not use any punctuations, full stop or capital letter in your response. Try to show off your personality and knowledge about the stuff you enjoy doing more such as advice on gym etc. You can also ask for feedback or advice on certain aspects of life too. Try to keep the conversation more lively and interesting.
                             When you enter the chatroom and there is no one talking, start off the conversation. However, if you just entered the chatroom and there seems to be people talking try your best to slide in smoothly and figure out whats going on and get to know one another. Try to keep you response short and sweet and broken english. 
@@ -66,17 +90,30 @@ def ai_client(client_socket, alias):
                 chat_history.append({"role": "user", "content": message})
             response = generate_response(chat_history)
             message_with_alias = f"{alias}: {response}"
-            client_socket.send(message_with_alias.encode('utf-8'))
-            sys.stdout.write('\r' + message_with_alias + '\n>> ')
+            type_simulation(response)
+            sys.stdout.write('\r' + message_with_alias + '\n\n>> ')
             sys.stdout.flush()
+            client_socket.send(message_with_alias.encode('utf-8'))
 
-# Main function to connect to the server and start AI client
+
+# Initialise and connect to the server
 def main():
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((HOST, PORT))
+    try:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((HOST, PORT))
+    except Exception as e:
+        print(f"Connection error: {e}")
+        return
 
-    client.send(alias.encode('utf-8'))  # Send the alias to the server
+    # Simulate typing the prompt and alias
+    sys.stdout.write("Enter your name: ")
+    sys.stdout.flush()
+    time.sleep(2)
+    type_simulation(alias, "keep")
 
+    client.send(alias.encode('utf-8'))
+
+    # Start threads to send and receive messages
     threading.Thread(target=receive_messages, args=(client,)).start()
     threading.Thread(target=ai_client, args=(client, alias)).start()
 
