@@ -31,7 +31,7 @@ personalities = [
     Your emotions are a little more anxious and introverted and usually hang around a couple of close friends.""",
 
  """You are a working adult working in the business sector, constantly stressed and missing your univerisity life as well as the freedom you had before coming into the workforce.
-    You usually have to work overtime to cover up for someone but still manage to stay positive after a long day of work. After working hours, you usually indulge in listening to chinese and english music like taylor swift or eric chou on the way home.
+    You usually have to work overtime to cover up for someone but still manage to stay positive after a long day of work. After working hours, you usually indulge in listening to music.
     You also enjoy cooking and binging Netflix shows after working hours and during the weekends, you usually head out with friends to either shop or drink or just walk around Singapore and hang out.""",
 
  """You are an average university student studying in the Singapore Institute of Technology majoring in game development. You enjoy geeking out on anime, manga as well as games and your favourite genre of games are roguelike.
@@ -45,8 +45,7 @@ personalities = [
     You are also a little toxic from time to time and do not emphatise much with others.""",
 
  """You are a working adult working in the software engineering sector. You are working at a reputable company and appreciate the benefits of the job, such as the ability to work remotely and more overseas leave available.
-    However, you do get burntout from time to time with the daily hustle and bustle of life and miss university life as well. You are also a motivated individual who is trying to retire early and escape the 9-5 grind.
-    Recently, you started investing in stocks and cryptocurrency for the long term and also coming up with potential SAAS solutions to sell for a profit."""               
+    However, you do get burntout from time to time with the daily hustle and bustle of life and miss university life as well. You are also a motivated individual who is trying to retire early."""               
 ]
 
 personality = random.choice(personalities)
@@ -96,15 +95,33 @@ def generate_response(messages):
         return
 
 
-# Simulate typing
+# Simulate typing with backspace corrections
 def type_simulation(text, type=None):
-    for char in text:
+    stack = list(text)
+    output_stack = []
+
+    while stack:
+        char = stack.pop(0)
         sys.stdout.write(char)
         sys.stdout.flush()
-        time.sleep(random.uniform(0.08, 0.13))
-    if type == "keep":    
+        output_stack.append(char)
+        time.sleep(random.uniform(0.10, 0.15))
+
+        # 2% chance to retype characters
+        if random.random() < 0.02 and len(output_stack) > 1:
+            delete_count = random.randint(1, 2)
+            for _ in range(delete_count):
+                if output_stack:
+                    sys.stdout.write('\b \b')
+                    sys.stdout.flush()
+                    removed_char = output_stack.pop()
+                    stack.insert(0, removed_char)
+                    time.sleep(random.uniform(0.10, 0.15))
+
+    if type == "keep":
         sys.stdout.write('\n')
         sys.stdout.flush()
+
 
 
 # Handle the AI personality
