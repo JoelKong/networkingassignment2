@@ -1,68 +1,88 @@
 import socket
 import threading
-import sys
-import os
-
+import tkinter as tk
+from tkinter import scrolledtext, simpledialog, messagebox
 
 # Connection Details for TCP Connections
 HOST = '127.0.0.1'
 PORT = 12345
 
+class ChatClient:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Chat Application")
+        self.root.geometry("400x700")
 
-# Receive messages from server and real time display update
-def receive_messages(client_socket):
-    while True:
+        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+        self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        self.chat_display.config(state=tk.DISABLED)
+
+        self.message_entry = tk.Text(root, height=3, wrap=tk.WORD)
+        self.message_entry.pack(padx=10, pady=5, fill=tk.X)
+        self.message_entry.bind("<Return>", self.send_message)
+        self.message_entry.bind("<Shift-Return>", self.newline)
+
+        self.client_socket = None
+        self.alias = None
+
+        self.connect_to_server()
+
+    def connect_to_server(self):
+        self.alias = simpledialog.askstring("Alias", "Enter your name:")
+        if not self.alias:
+            self.root.quit()
+            return
+
         try:
-            message = client_socket.recv(1024).decode('utf-8')
-            if message:
-                # Write the received message and show the prompt for new input
-                sys.stdout.write('\r' + message + '\n\n>> ')
-                sys.stdout.flush()
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((HOST, PORT))
+            self.client_socket.send(self.alias.encode('utf-8'))
+            threading.Thread(target=self.receive_messages).start()
         except Exception as e:
-            print(f"An error occurred: {e}")
-            client_socket.close()
-            break
+            messagebox.showerror("Connection error", f"Could not connect to server: {e}")
+            self.root.quit()
 
+    def receive_messages(self):
+        while True:
+            try:
+                message = self.client_socket.recv(1024).decode('utf-8')
+                if message:
+                    self.chat_display.config(state=tk.NORMAL)
+                    self.chat_display.insert(tk.END, message + "\n")
+                    self.chat_display.config(state=tk.DISABLED)
+                    self.chat_display.yview(tk.END)
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred: {e}")
+                self.client_socket.close()
+                break
 
-# Initialise client, connect to the server and send messages
-def initialise_client():
-    os.system('cls||clear')
-    alias = input("Enter your name: ")
+    def send_message(self, event=None):
+        message = self.message_entry.get("1.0", tk.END).strip()
+        if message:
+            message_with_alias = f"{self.alias}: {message}"
+            try:
+                self.client_socket.send(message_with_alias.encode('utf-8'))
+                self.message_entry.delete("1.0", tk.END)
+                # Prevent new line on Enter key
+                return 'break'
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred while sending message: {e}")
+                self.client_socket.close()
+                self.root.quit()
 
-    try:
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect((HOST, PORT))
-    except Exception as e:
-        print(f"Connection error: {e}")
-        return
+    def newline(self, event=None):
+        self.message_entry.insert(tk.INSERT, "\n")
+        return 'break'
 
-    try:
-        client.send(alias.encode('utf-8'))
-    except Exception as e:
-        print(f"Error sending alias: {e}")
-        client.close()
-        return
-
-    # Start the thread to receive messages
-    threading.Thread(target=receive_messages, args=(client,)).start()
-
-    while True:
+    def on_closing(self):
         try:
-            message = input("")
-            message_with_alias = f"{alias}: {message}"
-            # Clear the input line
-            print('\033[1A' + '\033[K', end='')
-            sys.stdout.write('\r' + message_with_alias + '\n\n>> ')
-            sys.stdout.flush()
-            client.send(message_with_alias.encode('utf-8'))
-        except Exception as e:
-            print(f"An error occurred while sending message: {e}")
-            client.close()
-            break
-        except KeyboardInterrupt:
-            print('\nLeaving the chatroom...')
-            client.close()
-            sys.exit(0)
-        
+            self.client_socket.close()
+        except:
+            pass
+        self.root.quit()
+
 if __name__ == "__main__":
-    initialise_client()
+    root = tk.Tk()
+    app = ChatClient(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
+    root.mainloop()

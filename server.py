@@ -20,7 +20,7 @@ def broadcast_messages(message, sender_socket=None):
     with lock:
         chat_history.append(message)
         for client in clients:
-            if client != sender_socket:
+            # if client != sender_socket:
                 try:
                     client.send(message.encode('utf-8'))
                 except Exception as e:
