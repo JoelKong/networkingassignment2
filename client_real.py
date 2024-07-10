@@ -24,6 +24,8 @@ class ChatClient:
 
         self.client_socket = None
         self.alias = None
+        self.receive_thread = None
+        self.stop_event = threading.Event()
 
         self.connect_to_server()
 
@@ -37,13 +39,14 @@ class ChatClient:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((HOST, PORT))
             self.client_socket.send(self.alias.encode('utf-8'))
-            threading.Thread(target=self.receive_messages).start()
+            self.receive_thread = threading.Thread(target=self.receive_messages)
+            self.receive_thread.start()
         except Exception as e:
             messagebox.showerror("Connection error", f"Could not connect to server: {e}")
             self.root.quit()
 
     def receive_messages(self):
-        while True:
+        while not self.stop_event.is_set():
             try:
                 message = self.client_socket.recv(1024).decode('utf-8')
                 if message:
@@ -52,8 +55,8 @@ class ChatClient:
                     self.chat_display.config(state=tk.DISABLED)
                     self.chat_display.yview(tk.END)
             except Exception as e:
-                messagebox.showerror("Error", f"An error occurred: {e}")
-                self.client_socket.close()
+                if not self.stop_event.is_set():
+                    messagebox.showerror("Error", f"An error occurred: {e}")
                 break
 
     def send_message(self, event=None):
@@ -66,7 +69,8 @@ class ChatClient:
                 # Prevent new line on Enter key
                 return 'break'
             except Exception as e:
-                messagebox.showerror("Error", f"An error occurred while sending message: {e}")
+                if not self.stop_event.is_set():
+                    messagebox.showerror("Error", f"An error occurred while sending message: {e}")
                 self.client_socket.close()
                 self.root.quit()
 
@@ -75,10 +79,14 @@ class ChatClient:
         return 'break'
 
     def on_closing(self):
+        self.stop_event.set()
         try:
-            self.client_socket.close()
-        except:
-            pass
+            if self.client_socket:
+                self.client_socket.close()
+            if self.receive_thread:
+                self.receive_thread.join()
+        except Exception as e:
+            print(f"Error while closing: {e}")
         self.root.quit()
 
 if __name__ == "__main__":
