@@ -32,8 +32,7 @@ def update_gui():
 def broadcast_messages(message, sender_socket=None, message_type=None):
     with lock:
         chat_history.append(message)
-        clients_copy = clients[:]
-        for client in clients_copy:
+        for client in clients:
             try:
                 # not a join message or is a join message and dont show ownself entering chat
                 if message_type == None or (message_type == "join" and client != sender_socket):
