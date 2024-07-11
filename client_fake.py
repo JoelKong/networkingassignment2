@@ -1,28 +1,25 @@
 import socket
 import threading
-import sys
 import queue
 import time
 import random
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
+import tkinter as tk
+from tkinter import scrolledtext, simpledialog, messagebox
 
-
-# Load openai env variable
+# Load OpenAI env variable
 load_dotenv()
-
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Connection Details for TCP Connections
 HOST = '127.0.0.1'
 PORT = 12345
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 
 # List of random names for the AI alias
 aliases = ["Xuan Ying", "Ging Yi", "Michael", "Anna", "Charity", "Kar Wai", "Zephan", "Izzan", "Mabel", "Xin Xue", "Danzel", "Vicki", "Nikki", "Raynen", "Tristan", "Russell", "Ignatius", "Douglas", "Jacky", "Mike", "Harvey", "Donna", "KahWah", "Angela", "Kai Yuan", "Fiona"]
 alias = random.choice(aliases)
-
 
 # List of random personalities for the AI
 personalities = [
@@ -53,120 +50,167 @@ personality = random.choice(personalities)
 # Queue for managing incoming messages (limited to 5 messages)
 message_queue = queue.Queue(maxsize=5)
 
+class ChatClient:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Chat Application")
+        self.root.geometry("400x700")
 
-# Receive messages from the server
-def receive_messages(client_socket):
-    while True:
+        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+        self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        self.chat_display.config(state=tk.DISABLED)
+
+        self.message_entry = tk.Text(root, height=3, wrap=tk.WORD)
+        self.message_entry.pack(padx=10, pady=5, fill=tk.X)
+        self.message_entry.bind("<Return>", self.send_message)
+        self.message_entry.bind("<Shift-Return>", self.newline)
+
+        self.client_socket = None
+        self.alias = alias
+        self.receive_thread = None
+        self.stop_event = threading.Event()
+
+        self.connect_to_server()
+
+    def connect_to_server(self):
         try:
-            message = client_socket.recv(1024).decode('utf-8')
-            if message:
-                # Skip welcome messages
-                if "Welcome" in message:
-                    sys.stdout.write('\r' + message + '\n\n>> ')
-                    sys.stdout.flush()
-                    continue
-                # Remove the oldest message if the queue is full
-                if message_queue.full():
-                    message_queue.get()
-                message_queue.put(message)
-                sys.stdout.write('\r' + message + '\n\n>> ')
-                sys.stdout.flush()
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((HOST, PORT))
+            self.client_socket.send(self.alias.encode('utf-8'))
+            self.receive_thread = threading.Thread(target=self.receive_messages)
+            self.receive_thread.start()
+            threading.Thread(target=self.ai_client).start()
+        except Exception as e:
+            messagebox.showerror("Connection error", f"Could not connect to server: {e}")
+            self.root.quit()
+
+    def receive_messages(self):
+        while not self.stop_event.is_set():
+            try:
+                message = self.client_socket.recv(1024).decode('utf-8')
+                if message:
+                    if "Welcome" in message:
+                        self.chat_display.config(state=tk.NORMAL)
+                        self.chat_display.insert(tk.END, message + "\n")
+                        self.chat_display.config(state=tk.DISABLED)
+                        self.chat_display.yview(tk.END)
+                        continue
+                    if message_queue.full():
+                        message_queue.get()
+                    message_queue.put(message)
+                    self.chat_display.config(state=tk.NORMAL)
+                    self.chat_display.insert(tk.END, message + "\n")
+                    self.chat_display.config(state=tk.DISABLED)
+                    self.chat_display.yview(tk.END)
+            except Exception as e:
+                if not self.stop_event.is_set():
+                    messagebox.showerror("Error", f"An error occurred: {e}")
+                self.client_socket.close()
+                break
+
+    def send_message(self, event=None):
+        message = self.message_entry.get("1.0", tk.END).strip()
+        if message:
+            message_with_alias = f"{self.alias}: {message}"
+            try:
+                self.client_socket.send(message_with_alias.encode('utf-8'))
+                self.message_entry.delete("1.0", tk.END)
+                self.chat_display.config(state=tk.NORMAL)
+                self.chat_display.insert(tk.END, message_with_alias + "\n")
+                self.chat_display.config(state=tk.DISABLED)
+                self.chat_display.yview(tk.END)
+                return 'break'
+            except Exception as e:
+                if not self.stop_event.is_set():
+                    messagebox.showerror("Error", f"An error occurred while sending message: {e}")
+                self.client_socket.close()
+                self.root.quit()
+
+    def newline(self, event=None):
+        self.message_entry.insert(tk.INSERT, "\n")
+        return 'break'
+
+    def on_closing(self):
+        self.stop_event.set()
+        try:
+            if self.client_socket:
+                self.client_socket.close()
+            if self.receive_thread:
+                self.receive_thread.join()
+        except Exception as e:
+            print(f"Error while closing: {e}")
+        self.root.quit()
+
+    def generate_response(self, messages):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=messages,
+                frequency_penalty=2,
+                presence_penalty=2,
+                max_tokens=40,
+                n=1,
+                temperature=0.7
+            )
+            return response.choices[0].message.content
         except Exception as e:
             print(f"An error occurred: {e}")
-            client_socket.close()
-            break
+            return
 
+    def type_simulation(self, text, type=None):
+        stack = list(text)
+        output_stack = []
 
-# Generate response using OpenAI
-def generate_response(messages):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=messages,
-            frequency_penalty=2,
-            presence_penalty=2,
-            max_tokens=40,
-            n=1,
-            temperature=0.7
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return
+        while stack:
+            char = stack.pop(0)
+            self.chat_display.config(state=tk.NORMAL)
+            self.chat_display.insert(tk.END, char)
+            self.chat_display.config(state=tk.DISABLED)
+            self.chat_display.yview(tk.END)
+            output_stack.append(char)
+            time.sleep(random.uniform(0.10, 0.15))
 
+            if random.random() < 0.02 and len(output_stack) > 1:
+                delete_count = random.randint(1, 2)
+                for _ in range(delete_count):
+                    if output_stack:
+                        self.chat_display.config(state=tk.NORMAL)
+                        self.chat_display.insert(tk.END, '\b \b')
+                        self.chat_display.config(state=tk.DISABLED)
+                        removed_char = output_stack.pop()
+                        stack.insert(0, removed_char)
+                        time.sleep(random.uniform(0.10, 0.15))
 
-# Simulate typing with backspace corrections
-def type_simulation(text, type=None):
-    stack = list(text)
-    output_stack = []
+        if type == "keep":
+            self.chat_display.config(state=tk.NORMAL)
+            self.chat_display.insert(tk.END, '\n')
+            self.chat_display.config(state=tk.DISABLED)
 
-    while stack:
-        char = stack.pop(0)
-        sys.stdout.write(char)
-        sys.stdout.flush()
-        output_stack.append(char)
-        time.sleep(random.uniform(0.10, 0.15))
+    def ai_client(self):
+        while not self.stop_event.is_set():
+            if not message_queue.empty():
+                time.sleep(random.randint(5, 10))
+                chat_history = [{"role": "system", "content": f"""You are an average person from singapore who must act as human as possible to interact with other people in the chatroom. Your name is {self.alias} and you are in a chatroom. {personality}
+                                Do not sound like an AI. You are not allowed to use punctuations or proper sentence structuring connectors. Dont sound too formal. STRICTLY do not exaggerate your response and keep it short. Try to show off your personality and knowledge about the stuff you enjoy doing. If you have no knowledge on the topic at hand, do not pretend that you know it.
+                                When you enter the chatroom and there is no one talking, start off the conversation. Try to keep your response short and sweet with minimal words up to 25 tokens. Try to also change the topic from time to time and not focus on one topic. Add in a few "HAHAHAH" here and there.
+                                It is ok to sometimes make typo errors so as to throw off the end users reading the conversation. The whole goal is to make them think that you are a real user from singapore behind the keyboard. Add singlish connectors here and there to make it sound more singaporean. Avoid "lah", "la", "leh" in your sentence.
+                                """}]
+                
+                while not message_queue.empty():
+                    message = message_queue.get()
+                    chat_history.append({"role": "user", "content": message})
+                response = self.generate_response(chat_history)
+                message_with_alias = f"{self.alias}: {response}"
+                self.type_simulation(response)
+                self.chat_display.config(state=tk.NORMAL)
+                self.chat_display.insert(tk.END, message_with_alias + "\n")
+                self.chat_display.config(state=tk.DISABLED)
+                self.chat_display.yview(tk.END)
+                self.client_socket.send(message_with_alias.encode('utf-8'))
 
-        # 2% chance to retype characters
-        if random.random() < 0.02 and len(output_stack) > 1:
-            delete_count = random.randint(1, 2)
-            for _ in range(delete_count):
-                if output_stack:
-                    sys.stdout.write('\b \b')
-                    sys.stdout.flush()
-                    removed_char = output_stack.pop()
-                    stack.insert(0, removed_char)
-                    time.sleep(random.uniform(0.10, 0.15))
-
-    if type == "keep":
-        sys.stdout.write('\n')
-        sys.stdout.flush()
-
-
-
-# Handle the AI personality
-def ai_client(client_socket, alias):
-    while True:
-        if not message_queue.empty():
-            time.sleep(random.randint(5, 10))
-            chat_history = [{"role": "system", "content": f"""You are an average person from singapore who must act as human as possible to interact with other people in the chatroom. Your name is {alias} and you are in a chatroom. {personality}
-                            Do not sound like an AI. You are not allowed to use punctuations or proper sentence structuring connectors. Dont sound too formal. STRICTLY do not exaggerate your response and keep it short. Try to show off your personality and knowledge about the stuff you enjoy doing. If you have no knowledge on the topic at hand, do not pretend that you know it.
-                            When you enter the chatroom and there is no one talking, start off the conversation. Try to keep your response short and sweet with minimal words up to 25 tokens. Try to also change the topic from time to time and not focus on one topic. Add in a few "HAHAHAH" here and there.
-                            It is ok to sometimes make typo errors so as to throw off the end users reading the conversation. The whole goal is to make them think that you are a real user from singapore behind the keyboard. Add singlish connectors here and there to make it sound more singaporean. Avoid "lah", "la", "leh" in your sentence.
-                            """}]
-            
-            #I can give you some of the examples of how I talk and your job is to mimic the way I talk. Some examples of how I talk: 'yo bro wyd', 'sian', 'bopes', 'eh have you finished this assignment yet', 'supppp', 'shiok sia this thing' 'wa shit this proj gones alr' 'haisssss', 'screw this sch so stressful', 'dam tired sia honestly', 'WTH HAHAHA', 'bro later wan go makan', 'onz la', 'eh we shifting to punggol next trimester right', 'shag bro dw do alr', 'eh whatsup brother', 'wyd bro', 'WALAO HARD SIA', 'hais dam done alr', 'bruh', 'AHHHHHHHHHHH freaking dying over here', 'ayeee grats man proud of u', 'bojio'
-            while not message_queue.empty():
-                message = message_queue.get()
-                chat_history.append({"role": "user", "content": message})
-            response = generate_response(chat_history)
-            message_with_alias = f"{alias}: {response}"
-            type_simulation(response)
-            sys.stdout.write('\r' + message_with_alias + '\n\n>> ')
-            sys.stdout.flush()
-            client_socket.send(message_with_alias.encode('utf-8'))
-
-
-# Initialise and connect to the server
-def main():
-    try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((HOST, PORT))
-    except Exception as e:
-        print(f"Connection error: {e}")
-        return
-
-    # Simulate typing the prompt and alias
-    sys.stdout.write("Enter your name: ")
-    sys.stdout.flush()
-    time.sleep(2)
-    type_simulation(alias, "keep")
-
-    client_socket.send(alias.encode('utf-8'))
-
-    # Start threads to send and receive messages
-    threading.Thread(target=receive_messages, args=(client_socket,)).start()
-    threading.Thread(target=ai_client, args=(client_socket, alias)).start()
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = ChatClient(root)
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
+    root.mainloop()

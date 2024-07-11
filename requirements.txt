@@ -1,4 +1,4 @@
-add stuff here
-openai
-python-dotenv
-import tk
+# add stuff here
+pip install openai
+pip install python-dotenv
+pip install tk
