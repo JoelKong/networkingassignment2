@@ -56,6 +56,9 @@ class ChatClient:
         self.root.title("Chat Application")
         self.root.geometry("400x700")
 
+        self.name_label = tk.Label(root, text="")
+        self.name_label.pack(padx=10, pady=5, anchor=tk.W)
+
         self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD)
         self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
         self.chat_display.config(state=tk.DISABLED)
@@ -77,6 +80,7 @@ class ChatClient:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((HOST, PORT))
             self.client_socket.send(self.alias.encode('utf-8'))
+            self.name_label.config(text=f"Name: {self.alias}")
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
             threading.Thread(target=self.ai_client).start()

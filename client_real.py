@@ -13,10 +13,16 @@ class ChatClient:
         self.root.title("Chat Application")
         self.root.geometry("400x700")
 
+        # name label
+        self.name_label = tk.Label(root, text="")
+        self.name_label.pack(padx=10, pady=5, anchor=tk.W)
+
+        # chat scrolled text
         self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD)
         self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
         self.chat_display.config(state=tk.DISABLED)
 
+        # chat input with multiline
         self.message_entry = tk.Text(root, height=3, wrap=tk.WORD)
         self.message_entry.pack(padx=10, pady=5, fill=tk.X)
         self.message_entry.bind("<Return>", self.send_message)
@@ -32,13 +38,16 @@ class ChatClient:
     def connect_to_server(self):
         self.alias = simpledialog.askstring("Alias", "Enter your name:")
         if not self.alias:
+            # quit if no name
             self.root.quit()
             return
 
         try:
+            # connect and update name label
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((HOST, PORT))
             self.client_socket.send(self.alias.encode('utf-8'))
+            self.name_label.config(text=f"Name: {self.alias}")
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
         except Exception as e:
@@ -46,6 +55,7 @@ class ChatClient:
             self.root.quit()
 
     def receive_messages(self):
+        # handle receiving message from server broadcast
         while not self.stop_event.is_set():
             try:
                 message = self.client_socket.recv(1024).decode('utf-8')
@@ -60,6 +70,7 @@ class ChatClient:
                 break
 
     def send_message(self, event=None):
+        # send message to server
         message = self.message_entry.get("1.0", tk.END).strip()
         if message:
             message_with_alias = f"{self.alias}: {message}"

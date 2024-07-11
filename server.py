@@ -13,27 +13,49 @@ aliases = []
 chat_history = []
 lock = threading.Lock()
 
+# Function to update GUI with chat history and client list
+def update_gui():
+    with lock:
+        # Update client list
+        client_list.delete(0, tk.END)
+        for alias in aliases:
+            client_list.insert(tk.END, alias)
+
+        # Update chat history
+        chat_display.config(state=tk.NORMAL)
+        chat_display.delete('1.0', tk.END)
+        for message in chat_history:
+            chat_display.insert(tk.END, message + "\n")
+        chat_display.config(state=tk.DISABLED)
 
 # Broadcast messages to all clients in the chatroom
-def broadcast_messages(message, sender_socket=None):
+def broadcast_messages(message, sender_socket=None, message_type=None):
     with lock:
         chat_history.append(message)
-        for client in clients:
+        clients_copy = clients[:]
+        for client in clients_copy:
             try:
-                client.send(message.encode('utf-8'))
+                # not a join message or is a join message and dont show ownself entering chat
+                if message_type == None or (message_type == "join" and client != sender_socket):
+                    client.send(message.encode('utf-8'))
             except Exception as e:
                 print(f"Error sending message to client: {e}")
-
+    # Update GUI after broadcasting message
+    root.after(0, update_gui)
 
 # Handle individual client messages and statuses
 def handle_client(client):
     while True:
         try:
             message = client.recv(1024).decode('utf-8')
-            print(f'[*] {message}')
-            broadcast_messages(message, client)
+            if message:
+                print(f'[*] {message}')
+                broadcast_messages(message, client)
+            else:
+                raise Exception("Client disconnected")
         except:
             with lock:
+                #remove closed clients
                 if client in clients:
                     index = clients.index(client)
                     clients.remove(client)
@@ -41,12 +63,11 @@ def handle_client(client):
                     alias = aliases.pop(index)
                     leave_message = f'{alias} has left the chatroom!'
                     print(f'[*] {leave_message}')
-                    broadcast_messages(leave_message)
-                    update_gui()
+            # put broadcast outside of lock to prevent deadlock
+            broadcast_messages(leave_message)
             break
-
-
-# Initialisation of server socket and handle client connections
+        
+# Initialisation of server socket and handle client connectionsz
 def initialise_socket():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -70,31 +91,15 @@ def initialise_socket():
             print(f'[*] {join_message}')
 
             client.send(f'Welcome {alias} to the chatroom.'.encode('utf-8'))
-            broadcast_messages(join_message, client)
+            broadcast_messages(join_message, client, "join")
 
             thread = threading.Thread(target=handle_client, args=(client,))
             thread.start()
-            update_gui()
         except Exception as e:
             print(f"Error accepting client connection: {e}")
 
-
 def start_server():
     threading.Thread(target=initialise_socket, daemon=True).start()
-
-
-def update_gui():
-    with lock:
-        client_list.delete(0, tk.END)
-        for alias in aliases:
-            client_list.insert(tk.END, alias)
-
-        chat_display.config(state=tk.NORMAL)
-        chat_display.delete('1.0', tk.END)
-        for message in chat_history:
-            chat_display.insert(tk.END, message + "\n")
-        chat_display.config(state=tk.DISABLED)
-
 
 # GUI Implementation
 root = tk.Tk()
