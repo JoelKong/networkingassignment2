@@ -1,7 +1,7 @@
 import socket
 import threading
 import tkinter as tk
-from tkinter import scrolledtext, messagebox
+from tkinter import font, scrolledtext, messagebox
 
 # Connection Details for TCP connections
 HOST = '127.0.0.1'
@@ -25,7 +25,7 @@ def update_gui():
         chat_display.config(state=tk.NORMAL)
         chat_display.delete('1.0', tk.END)
         for message in chat_history:
-            chat_display.insert(tk.END, message + "\n")
+            chat_display.insert(tk.END,"[*] " + message + "\n")
         chat_display.config(state=tk.DISABLED)
 
 # Broadcast messages to all clients in the chatroom
@@ -105,19 +105,21 @@ root = tk.Tk()
 root.title("Chat Server")
 root.geometry("500x700")
 
+font_config = font.Font(family="Helvetica", size=12)
+
 frame = tk.Frame(root)
 frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
 client_list_label = tk.Label(frame, text="Connected Clients")
 client_list_label.pack()
 
-client_list = tk.Listbox(frame, height=5)
+client_list = tk.Listbox(frame, height=5,font=font_config)
 client_list.pack(fill=tk.BOTH, expand=True)
 
 chat_display_label = tk.Label(frame, text="Chat History")
 chat_display_label.pack()
 
-chat_display = scrolledtext.ScrolledText(frame, state=tk.DISABLED)
+chat_display = scrolledtext.ScrolledText(frame, state=tk.DISABLED, font=font_config)
 chat_display.pack(fill=tk.BOTH, expand=True)
 
 start_button = tk.Button(root, text="Start Server", command=start_server)

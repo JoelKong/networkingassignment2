@@ -7,15 +7,15 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 import tkinter as tk
-from tkinter import scrolledtext, messagebox
+from tkinter import font, scrolledtext, messagebox
 
 # Load OpenAI env variable
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # simulate typing settings
-MIN_INTERVAL = 0.1
-MAX_INTERVAL = 0.3
+MIN_INTERVAL = 0.07
+MAX_INTERVAL = 0.2
 TYPO_CHANCE = 0.06
 FIX_TYPO = True
 
@@ -178,14 +178,20 @@ class ChatClient:
         self.root.title("Chat Application")
         self.root.geometry("400x700")
 
+        # font config
+        font_config = font.Font(family="Helvetica", size=12)
+
+        # name label
         self.name_label = tk.Label(root, text="")
         self.name_label.pack(padx=10, pady=5, anchor=tk.W)
 
-        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+        # chat scrolled text
+        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, font=font_config)
         self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
         self.chat_display.config(state=tk.DISABLED)
 
-        self.message_entry = tk.Text(root, height=6, wrap=tk.WORD)
+        # chat input with multiline
+        self.message_entry = tk.Text(root, height=6, wrap=tk.WORD, font=font_config)
         self.message_entry.pack(padx=10, pady=5, fill=tk.X)
         self.message_entry.bind("<Return>", self.send_message)
         self.message_entry.bind("<Shift-Return>", self.newline)
@@ -217,7 +223,7 @@ class ChatClient:
             
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
-            self.ai_thread = threading.Thread(target=self.ai_client)
+            self.ai_thread = threading.Thread(target=self.ai_client, daemon=True)
             self.ai_thread.start()
         except Exception as e:
             messagebox.showerror("Connection error", f"Could not connect to server: {e}")
@@ -228,19 +234,21 @@ class ChatClient:
             try:
                 message = self.client_socket.recv(1024).decode('utf-8')
                 if message:
-                    # ignore server welcome and leave message
-                    if not ":" in message:
+                    # ignore server leave message
+                    if not ":" in message and not message.strip().lower().endswith("has joined the chatroom!"):
                         self.chat_display.config(state=tk.NORMAL)
-                        self.chat_display.insert(tk.END, message + "\n")
+                        self.chat_display.insert(tk.END, message + "\n\n")
                         self.chat_display.config(state=tk.DISABLED)
                         self.chat_display.yview(tk.END)
                         continue
+
+                    # incoming message from server
                     # limit message queue to 5
                     if message_queue.full():
                         message_queue.get()
                     message_queue.put(message)
                     self.chat_display.config(state=tk.NORMAL)
-                    self.chat_display.insert(tk.END, message + "\n")
+                    self.chat_display.insert(tk.END, message + "\n\n")
                     self.chat_display.config(state=tk.DISABLED)
                     self.chat_display.yview(tk.END)
             except Exception as e:
@@ -303,8 +311,8 @@ class ChatClient:
             if not message_queue.empty():
                 time.sleep(random.randint(5, 10))
                 latest_message = message_queue.queue[-1]
-                if not latest_message.lower().startswith(self.alias.lower()) and ":" in latest_message:
-                    # generate respond only when someone else talks
+                if not (latest_message.lower().startswith(f"{self.alias.lower()}: ")) or (not ":" in latest_message and latest_message.lower().endswith("has joined the chatroom!")):
+                    # g)enerate respond only when someone else talks
                     # ignore leave message
                     chat_history = [{"role": "system", "content": f"""You are an average person from singapore who must act as human as possible to interact with other people in the chatroom. Your name is {self.alias} and you are in a chatroom. {personality}
                                     Do not sound like an AI. You are not allowed to use punctuations or proper sentence structuring connectors. Dont sound too formal. STRICTLY do not exaggerate your response and keep it short. Try to show off your personality and knowledge about the stuff you enjoy doing. If you have no knowledge on the topic at hand, do not pretend that you know it.
@@ -321,7 +329,16 @@ class ChatClient:
                     # remove name tag from ai respond
                     if response.startswith(f"{self.alias}: "):
                         response = response[len(f"{self.alias}: "):]
+                    
+                    # update message queue
+                    if message_queue.full():
+                        message_queue.get()
+                    
+                    # need to add alias to queue as message not send
+                    message_with_alias = f"{self.alias}: {response}"
+                    message_queue.put(message_with_alias)
                     simulate_typing(self.message_entry,response, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)
+                    
 
 if __name__ == "__main__":
     root = tk.Tk()

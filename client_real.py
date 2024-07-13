@@ -1,7 +1,7 @@
 import socket
 import threading
 import tkinter as tk
-from tkinter import scrolledtext, messagebox
+from tkinter import font, scrolledtext, messagebox
 
 # Connection Details for TCP Connections
 HOST = '127.0.0.1'
@@ -49,17 +49,20 @@ class ChatClient:
         self.root.title("Chat Application")
         self.root.geometry("400x700")
 
+        # font config
+        font_config = font.Font(family="Helvetica", size=12)
+
         # name label
         self.name_label = tk.Label(root, text="")
         self.name_label.pack(padx=10, pady=5, anchor=tk.W)
 
         # chat scrolled text
-        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, font= font_config)
         self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
         self.chat_display.config(state=tk.DISABLED)
 
         # chat input with multiline
-        self.message_entry = tk.Text(root, height=6, wrap=tk.WORD)
+        self.message_entry = tk.Text(root, height=6, wrap=tk.WORD, font=font_config)
         self.message_entry.pack(padx=10, pady=5, fill=tk.X)
         self.message_entry.bind("<Return>", self.send_message)
         self.message_entry.bind("<Shift-Return>", self.newline)
@@ -100,7 +103,7 @@ class ChatClient:
                 message = self.client_socket.recv(1024).decode('utf-8')
                 if message:
                     self.chat_display.config(state=tk.NORMAL)
-                    self.chat_display.insert(tk.END, message + "\n")
+                    self.chat_display.insert(tk.END, message + "\n\n")
                     self.chat_display.config(state=tk.DISABLED)
                     self.chat_display.yview(tk.END)
             except Exception as e:
