@@ -7,11 +7,17 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 import tkinter as tk
-from tkinter import scrolledtext, simpledialog, messagebox
+from tkinter import scrolledtext, messagebox
 
 # Load OpenAI env variable
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# simulate typing settings
+MIN_INTERVAL = 0.1
+MAX_INTERVAL = 0.3
+TYPO_CHANCE = 0.06
+FIX_TYPO = True
 
 # Connection Details for TCP Connections
 HOST = '127.0.0.1'
@@ -50,6 +56,122 @@ personality = random.choice(personalities)
 # Queue for managing incoming messages (limited to 5 messages)
 message_queue = queue.Queue(maxsize=5)
 
+# Mapping of keys to their neighbors on a QWERTY keyboard
+qwerty_neighbors = {
+    'a': 'aqwsz', 'b': 'bvghn', 'c': 'cxdfv', 'd': 'dserfcx',
+    'e': 'ewsdr', 'f': 'frtgvcd', 'g': 'gtyhbvf', 'h': 'hyujnbg',
+    'i': 'iujko', 'j': 'juikmnh', 'k': 'kijolm', 'l': 'lkop',
+    'm': 'mnjk', 'n': 'nbhjm', 'o': 'oiklp', 'p': 'pol',
+    'q': 'qwas', 'r': 'redft', 's': 'swazedx', 't': 'trfgy',
+    'u': 'uyhji', 'v': 'vcfgb', 'w': 'wqase', 'x': 'xzsdc',
+    'y': 'ytghu', 'z': 'zasx',
+    '1': '12q', '2': '213qw', '3': '324we', '4': '435er',
+    '5': '546rt', '6': '657ty', '7': '768yu', '8': '879ui',
+    '9': '980io', '0': '09op', '-': '-0p', '=': '=-'
+}
+
+def get_typo_char(char):
+    """Get a typo character close to the original char based on QWERTY neighbors."""
+    if char in qwerty_neighbors:
+        return random.choice(qwerty_neighbors[char])
+    return char
+
+# Arguments: entrybox, text, min_interval: float, max_interval: float, typo_chance: float, fix_typo: bool
+def simulate_typing(textbox, text, min_interval, max_interval, typo_chance, fix_typo):
+    textbox.focus_force()
+    textbox.focus_set()
+    for char in text:
+        # Random delay to simulate human typing speed
+        delay = random.uniform(min_interval, max_interval)
+        time.sleep(delay)
+
+        # Insert the correct character
+        textbox.insert(tk.END, char)
+        textbox.update()
+
+        # Randomly decide whether to make a typo
+        if random.random() < typo_chance:
+            # Random delay before fixing the typo
+            time.sleep(random.uniform(min_interval, max_interval))
+            # Make a typo (insert a neighboring character)
+            typo_char = get_typo_char(char)
+            textbox.insert(tk.END, typo_char)
+            textbox.update()
+            if fix_typo:
+                # Delay before deleting the typo
+                time.sleep(random.uniform(min_interval, max_interval))
+                # Delete the typo character
+                delete_last_char(textbox)
+                textbox.update()
+    # simulate hit enter after typing finish
+    textbox.focus_force()
+    textbox.focus_set()
+    time.sleep(random.uniform(min_interval, max_interval))
+    textbox.event_generate('<Return>')
+
+# handle cases where textbox could be tk.Entry or tk.Text
+def delete_last_char(widget):
+    if isinstance(widget, tk.Entry):
+        current_text = widget.get()
+        if current_text:  # If there's any text
+            widget.delete(len(current_text) - 1, tk.END)
+    elif isinstance(widget, tk.Text):
+        # Get the current content of the text widget
+        content = widget.get("1.0", tk.END)
+        # If there's any content, delete the last character
+        if content.strip():  # Check if the content is not just whitespace
+            widget.delete('end-2c', tk.END)
+
+# custom gui for username to bypass standard askdialog where the input field could not be modified
+class CustomDialog:
+    def __init__(self, parent, simulate_text):
+        self.parent = parent
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.geometry("200x150")
+        # Bring the dialog to the front
+        self.dialog.wm_attributes("-topmost", 1)
+
+        
+        self.label = tk.Label(self.dialog, text="Enter your name")
+        self.label.pack(fill='both', pady=20)
+        
+        # Entry widget for user input
+        self.entry = tk.Entry(self.dialog)
+        self.entry.pack(pady=10,padx=20)
+        
+        # Bind the Enter key to close the dialog and return the entry value
+        self.entry.bind("<Return>", self.on_enter_pressed)
+        
+        # Focus on entry widget
+        self.entry.focus_force()
+        self.entry.focus_set()
+        self.value = None
+
+        # alias text for ai to input
+        self.simulate_text = simulate_text
+
+        # simulate typing
+        self.dialog.after(random.randint(1000, 3000), self.start_simulation)
+        
+        # wait for dialog to close
+        self.dialog.grab_set()
+        self.parent.wait_window(self.dialog)
+
+    def start_simulation(self):
+        # simulate typing
+        simulate_typing(self.entry, self.simulate_text, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)
+
+    def on_enter_pressed(self, event):
+        # Close the dialog and return the entry value
+        self.value = self.entry.get()
+        self.dialog.destroy()
+
+    def get_value(self):
+        return self.value
+
+
+
+
 class ChatClient:
     def __init__(self, root):
         self.root = root
@@ -63,42 +185,57 @@ class ChatClient:
         self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
         self.chat_display.config(state=tk.DISABLED)
 
-        self.message_entry = tk.Text(root, height=3, wrap=tk.WORD)
+        self.message_entry = tk.Text(root, height=6, wrap=tk.WORD)
         self.message_entry.pack(padx=10, pady=5, fill=tk.X)
         self.message_entry.bind("<Return>", self.send_message)
         self.message_entry.bind("<Shift-Return>", self.newline)
 
         self.client_socket = None
-        self.alias = alias
         self.receive_thread = None
+        self.ai_thread = None
         self.stop_event = threading.Event()
 
         self.connect_to_server()
 
     def connect_to_server(self):
+        # alias from random choice
+        self.dialog = CustomDialog(self.root, alias)
+        self.alias = self.dialog.get_value()
+        
+        if not self.alias:
+            # quit if no name
+            self.quit_app()
+            return
+        
         try:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((HOST, PORT))
             self.client_socket.send(self.alias.encode('utf-8'))
+
             self.name_label.config(text=f"Name: {self.alias}")
+            self.root.focus_force()
+            
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
-            threading.Thread(target=self.ai_client).start()
+            self.ai_thread = threading.Thread(target=self.ai_client)
+            self.ai_thread.start()
         except Exception as e:
             messagebox.showerror("Connection error", f"Could not connect to server: {e}")
-            self.root.quit()
+            self.quit_app()
 
     def receive_messages(self):
         while not self.stop_event.is_set():
             try:
                 message = self.client_socket.recv(1024).decode('utf-8')
                 if message:
-                    if "Welcome" in message:
+                    # ignore server welcome and leave message
+                    if not ":" in message:
                         self.chat_display.config(state=tk.NORMAL)
                         self.chat_display.insert(tk.END, message + "\n")
                         self.chat_display.config(state=tk.DISABLED)
                         self.chat_display.yview(tk.END)
                         continue
+                    # limit message queue to 5
                     if message_queue.full():
                         message_queue.get()
                     message_queue.put(message)
@@ -109,7 +246,6 @@ class ChatClient:
             except Exception as e:
                 if not self.stop_event.is_set():
                     messagebox.showerror("Error", f"An error occurred: {e}")
-                self.client_socket.close()
                 break
 
     def send_message(self, event=None):
@@ -119,16 +255,12 @@ class ChatClient:
             try:
                 self.client_socket.send(message_with_alias.encode('utf-8'))
                 self.message_entry.delete("1.0", tk.END)
-                self.chat_display.config(state=tk.NORMAL)
-                self.chat_display.insert(tk.END, message_with_alias + "\n")
-                self.chat_display.config(state=tk.DISABLED)
-                self.chat_display.yview(tk.END)
                 return 'break'
             except Exception as e:
                 if not self.stop_event.is_set():
                     messagebox.showerror("Error", f"An error occurred while sending message: {e}")
                 self.client_socket.close()
-                self.root.quit()
+                self.quit_app()
 
     def newline(self, event=None):
         self.message_entry.insert(tk.INSERT, "\n")
@@ -143,7 +275,11 @@ class ChatClient:
                 self.receive_thread.join()
         except Exception as e:
             print(f"Error while closing: {e}")
-        self.root.quit()
+        self.root.destroy()
+
+    def quit_app(self):
+        self.stop_event.set()
+        self.root.destroy()
 
     def generate_response(self, messages):
         try:
@@ -158,60 +294,34 @@ class ChatClient:
             )
             return response.choices[0].message.content
         except Exception as e:
-            print(f"An error occurred: {e}")
+            messagebox.showerror("generate response error", f"An error occurred: {e}")
             return
-
-    def type_simulation(self, text, type=None):
-        stack = list(text)
-        output_stack = []
-
-        while stack:
-            char = stack.pop(0)
-            self.chat_display.config(state=tk.NORMAL)
-            self.chat_display.insert(tk.END, char)
-            self.chat_display.config(state=tk.DISABLED)
-            self.chat_display.yview(tk.END)
-            output_stack.append(char)
-            time.sleep(random.uniform(0.10, 0.15))
-
-            if random.random() < 0.02 and len(output_stack) > 1:
-                delete_count = random.randint(1, 2)
-                for _ in range(delete_count):
-                    if output_stack:
-                        self.chat_display.config(state=tk.NORMAL)
-                        self.chat_display.insert(tk.END, '\b \b')
-                        self.chat_display.config(state=tk.DISABLED)
-                        removed_char = output_stack.pop()
-                        stack.insert(0, removed_char)
-                        time.sleep(random.uniform(0.10, 0.15))
-
-        if type == "keep":
-            self.chat_display.config(state=tk.NORMAL)
-            self.chat_display.insert(tk.END, '\n')
-            self.chat_display.config(state=tk.DISABLED)
+    
 
     def ai_client(self):
         while not self.stop_event.is_set():
             if not message_queue.empty():
                 time.sleep(random.randint(5, 10))
-                chat_history = [{"role": "system", "content": f"""You are an average person from singapore who must act as human as possible to interact with other people in the chatroom. Your name is {self.alias} and you are in a chatroom. {personality}
-                                Do not sound like an AI. You are not allowed to use punctuations or proper sentence structuring connectors. Dont sound too formal. STRICTLY do not exaggerate your response and keep it short. Try to show off your personality and knowledge about the stuff you enjoy doing. If you have no knowledge on the topic at hand, do not pretend that you know it.
-                                When you enter the chatroom and there is no one talking, start off the conversation. Try to keep your response short and sweet with minimal words up to 25 tokens. Try to also change the topic from time to time and not focus on one topic. Add in a few "HAHAHAH" here and there.
-                                It is ok to sometimes make typo errors so as to throw off the end users reading the conversation. The whole goal is to make them think that you are a real user from singapore behind the keyboard. Add singlish connectors here and there to make it sound more singaporean. Avoid "lah", "la", "leh" in your sentence.
-                                """}]
-                
-                while not message_queue.empty():
-                    message = message_queue.get()
-                    chat_history.append({"role": "user", "content": message})
-                response = self.generate_response(chat_history)
-                message_with_alias = f"{self.alias}: {response}"
-                self.type_simulation(response)
-                self.chat_display.config(state=tk.NORMAL)
-                self.chat_display.insert(tk.END, message_with_alias + "\n")
-                self.chat_display.config(state=tk.DISABLED)
-                self.chat_display.yview(tk.END)
-                self.client_socket.send(message_with_alias.encode('utf-8'))
+                latest_message = message_queue.queue[-1]
+                if not latest_message.lower().startswith(self.alias.lower()) and ":" in latest_message:
+                    # generate respond only when someone else talks
+                    # ignore leave message
+                    chat_history = [{"role": "system", "content": f"""You are an average person from singapore who must act as human as possible to interact with other people in the chatroom. Your name is {self.alias} and you are in a chatroom. {personality}
+                                    Do not sound like an AI. You are not allowed to use punctuations or proper sentence structuring connectors. Dont sound too formal. STRICTLY do not exaggerate your response and keep it short. Try to show off your personality and knowledge about the stuff you enjoy doing. If you have no knowledge on the topic at hand, do not pretend that you know it.
+                                    When you enter the chatroom and there is no one talking, start off the conversation. Try to keep your response short and sweet with minimal words up to 25 tokens. Try to also change the topic from time to time and not focus on one topic. Add in a few "HAHAHAH" here and there.
+                                    It is ok to sometimes make typo errors so as to throw off the end users reading the conversation. The whole goal is to make them think that you are a real user from singapore behind the keyboard. Add singlish connectors here and there to make it sound more singaporean. Avoid "lah", "la", "leh" in your sentence.
+                                    """}]
+                    
+                    # Iterate over a copy of the queue's items
+                    for message in list(message_queue.queue):
+                        chat_history.append({"role": "user", "content": message})
+                    
+                    response = self.generate_response(chat_history)
 
+                    # remove name tag from ai respond
+                    if response.startswith(f"{self.alias}: "):
+                        response = response[len(f"{self.alias}: "):]
+                    simulate_typing(self.message_entry,response, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)
 
 if __name__ == "__main__":
     root = tk.Tk()

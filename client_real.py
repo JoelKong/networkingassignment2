@@ -1,11 +1,47 @@
 import socket
 import threading
 import tkinter as tk
-from tkinter import scrolledtext, simpledialog, messagebox
+from tkinter import scrolledtext, messagebox
 
 # Connection Details for TCP Connections
 HOST = '127.0.0.1'
 PORT = 12345
+
+class CustomDialog:
+    def __init__(self, parent):
+        self.parent = parent
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.geometry("200x150")
+        # Bring the dialog to the front
+        self.dialog.wm_attributes("-topmost", 1)
+
+        
+        self.label = tk.Label(self.dialog, text="Enter your name")
+        self.label.pack(fill='both', pady=20)
+        
+        # Entry widget for user input
+        self.entry = tk.Entry(self.dialog)
+        self.entry.pack(pady=10,padx=20)
+        
+        # Bind the Enter key to close the dialog and return the entry value
+        self.entry.bind("<Return>", self.on_enter_pressed)
+        
+        # Focus on entry widget
+        self.entry.focus_force()
+        self.entry.focus_set()
+        self.value = None
+        
+        # wait for dialog to close
+        self.dialog.grab_set()
+        self.parent.wait_window(self.dialog)
+
+    def on_enter_pressed(self, event):
+        # Close the dialog and return the entry value
+        self.value = self.entry.get()
+        self.dialog.destroy()
+
+    def get_value(self):
+        return self.value
 
 class ChatClient:
     def __init__(self, root):
@@ -23,7 +59,7 @@ class ChatClient:
         self.chat_display.config(state=tk.DISABLED)
 
         # chat input with multiline
-        self.message_entry = tk.Text(root, height=3, wrap=tk.WORD)
+        self.message_entry = tk.Text(root, height=6, wrap=tk.WORD)
         self.message_entry.pack(padx=10, pady=5, fill=tk.X)
         self.message_entry.bind("<Return>", self.send_message)
         self.message_entry.bind("<Shift-Return>", self.newline)
@@ -36,23 +72,26 @@ class ChatClient:
         self.connect_to_server()
 
     def connect_to_server(self):
-        self.alias = simpledialog.askstring("Alias", "Enter your name:")
+        self.dialog = CustomDialog(self.root)
+        self.alias = self.dialog.get_value()
         if not self.alias:
-            # quit if no name
-            self.root.quit()
+            self.quit_app()
             return
-
+        
         try:
             # connect and update name label
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((HOST, PORT))
             self.client_socket.send(self.alias.encode('utf-8'))
+
             self.name_label.config(text=f"Name: {self.alias}")
+            self.root.focus_force()
+
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
         except Exception as e:
             messagebox.showerror("Connection error", f"Could not connect to server: {e}")
-            self.root.quit()
+            self.quit_app()
 
     def receive_messages(self):
         # handle receiving message from server broadcast
@@ -83,7 +122,7 @@ class ChatClient:
                 if not self.stop_event.is_set():
                     messagebox.showerror("Error", f"An error occurred while sending message: {e}")
                 self.client_socket.close()
-                self.root.quit()
+                self.quit_app()
 
     def newline(self, event=None):
         self.message_entry.insert(tk.INSERT, "\n")
@@ -98,7 +137,11 @@ class ChatClient:
                 self.receive_thread.join()
         except Exception as e:
             print(f"Error while closing: {e}")
-        self.root.quit()
+        self.root.destroy()
+
+    def quit_app(self):
+        self.stop_event.set()
+        self.root.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
