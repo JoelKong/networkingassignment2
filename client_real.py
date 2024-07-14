@@ -1,3 +1,4 @@
+# Use Socket and threading and tkinter library
 import socket
 import threading
 import tkinter as tk
@@ -7,6 +8,7 @@ from tkinter import font, scrolledtext, messagebox
 HOST = '127.0.0.1'
 PORT = 12345
 
+# GUI for entering name
 class CustomDialog:
     def __init__(self, parent):
         self.parent = parent
@@ -38,7 +40,8 @@ class CustomDialog:
     def on_enter_pressed(self, event):
         # Close the dialog and return the entry value
         self.value = self.entry.get()
-        self.dialog.destroy()
+        if self.value.strip():
+            self.dialog.destroy()
 
     def get_value(self):
         return self.value

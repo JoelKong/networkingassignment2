@@ -1,3 +1,4 @@
+# Making use of queue to limit message queues and also socket and threading and tkinter
 import socket
 import threading
 import queue
@@ -13,8 +14,8 @@ from tkinter import font, scrolledtext, messagebox
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# simulate typing settings
-MIN_INTERVAL = 0.07
+# Simulate typing settings
+MIN_INTERVAL = 0.08
 MAX_INTERVAL = 0.2
 TYPO_CHANCE = 0.06
 FIX_TYPO = True
@@ -75,11 +76,12 @@ qwerty_neighbors = {
 }
 
 def get_typo_char(char):
-    """Get a typo character close to the original char based on QWERTY neighbors."""
+    # Get a typo character close to the original char based on QWERTY neighbors.
     if char in qwerty_neighbors:
         return random.choice(qwerty_neighbors[char])
     return char
 
+# Typing Simulation with random error and backspace recorrection chance
 # Arguments: entrybox, text, min_interval: float, max_interval: float, typo_chance: float, fix_typo: bool
 def simulate_typing(textbox, text, min_interval, max_interval, typo_chance, fix_typo):
     textbox.focus_force()
@@ -95,8 +97,8 @@ def simulate_typing(textbox, text, min_interval, max_interval, typo_chance, fix_
 
         # Randomly decide whether to make a typo
         if random.random() < typo_chance:
-            # Random delay before fixing the typo
             time.sleep(random.uniform(min_interval, max_interval))
+
             # Make a typo (insert a neighboring character)
             typo_char = get_typo_char(char)
             textbox.insert(tk.END, typo_char)
@@ -107,32 +109,30 @@ def simulate_typing(textbox, text, min_interval, max_interval, typo_chance, fix_
                 # Delete the typo character
                 delete_last_char(textbox)
                 textbox.update()
-    # simulate hit enter after typing finish
+    # Simulate hit enter after typing finish
     textbox.focus_force()
     textbox.focus_set()
     time.sleep(random.uniform(min_interval, max_interval))
     textbox.event_generate('<Return>')
 
-# handle cases where textbox could be tk.Entry or tk.Text
+# Handle cases where textbox could be tk.Entry or tk.Text
 def delete_last_char(widget):
     if isinstance(widget, tk.Entry):
         current_text = widget.get()
-        if current_text:  # If there's any text
+        if current_text:
             widget.delete(len(current_text) - 1, tk.END)
     elif isinstance(widget, tk.Text):
-        # Get the current content of the text widget
+        # Get the current content of the text widget and delete last character if there is content
         content = widget.get("1.0", tk.END)
-        # If there's any content, delete the last character
-        if content.strip():  # Check if the content is not just whitespace
+        if content.strip():
             widget.delete('end-2c', tk.END)
 
-# custom gui for username to bypass standard askdialog where the input field could not be modified
+# Custom gui for username to bypass standard askdialog where the input field could not be modified
 class CustomDialog:
     def __init__(self, parent, simulate_text):
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.geometry("200x150")
-        # Bring the dialog to the front
         self.dialog.wm_attributes("-topmost", 1)
 
         
@@ -168,14 +168,13 @@ class CustomDialog:
     def on_enter_pressed(self, event):
         # Close the dialog and return the entry value
         self.value = self.entry.get()
-        self.dialog.destroy()
+        if self.value.strip():
+            self.dialog.destroy()
 
     def get_value(self):
         return self.value
 
-
-
-
+# Chat Application GUI
 class ChatClient:
     def __init__(self, root):
         self.root = root
@@ -207,6 +206,7 @@ class ChatClient:
 
         self.connect_to_server()
 
+    # Connect to socket
     def connect_to_server(self):
         # alias from random choice
         self.dialog = CustomDialog(self.root, alias)
@@ -233,12 +233,13 @@ class ChatClient:
             messagebox.showerror("Connection error", f"Could not connect to server: {e}")
             self.quit_app()
 
+    # Handle logic to receive messages
     def receive_messages(self):
         while not self.stop_event.is_set():
             try:
                 message = self.client_socket.recv(1024).decode('utf-8')
                 if message:
-                    # ignore server leave message
+                    # ignore server leave message for queue
                     if not ":" in message and not message.strip().lower().endswith("has joined the chatroom!"):
                         self.chat_display.config(state=tk.NORMAL)
                         self.chat_display.insert(tk.END, message + "\n\n")
@@ -260,6 +261,7 @@ class ChatClient:
                     messagebox.showerror("Error", f"An error occurred: {e}")
                 break
 
+    # Handle logic to sen message
     def send_message(self, event=None):
         message = self.message_entry.get("1.0", tk.END).strip()
         if message:
@@ -293,6 +295,7 @@ class ChatClient:
         self.stop_event.set()
         self.root.destroy()
 
+    # Generate response parameters
     def generate_response(self, messages):
         try:
             response = client.chat.completions.create(
@@ -309,14 +312,14 @@ class ChatClient:
             messagebox.showerror("generate response error", f"An error occurred: {e}")
             return
     
-
+    # Prompt for openai
     def ai_client(self):
         while not self.stop_event.is_set():
             if not message_queue.empty():
                 time.sleep(random.randint(5, 10))
                 latest_message = message_queue.queue[-1]
                 if not (latest_message.lower().startswith(f"{self.alias.lower()}: ")) or (not ":" in latest_message and latest_message.lower().endswith("has joined the chatroom!")):
-                    # g)enerate respond only when someone else talks
+                    # generate respond only when someone else talks
                     # ignore leave message
                     chat_history = [{"role": "system", "content": f"""You are an average person from singapore who must act as human as possible to interact with other people in the chatroom. Your name is {self.alias} and you are in a chatroom. You do not know anyone from there. Dont act like you know them. Do not introduce yourself as well. {personality}
                                     Do not sound like an AI. You are not allowed to use punctuations or proper sentence structuring connectors like apostrophe or full stop or capital letters. Skip the small chat dont say hi more than once. Dont sound too formal. STRICTLY do not exaggerate your response and keep it short. Talk about 1 thing at a time dont rush the conversation. If you have no knowledge on the topic at hand, do not pretend that you know it.
