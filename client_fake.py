@@ -155,18 +155,27 @@ class CustomDialog:
         self.simulate_text = simulate_text
 
         # simulate typing
-        self.dialog.after(random.randint(1000, 3000), self.start_simulation)
+        self.start_simulate = False
+        # self.dialog.after(random.randint(1000, 3000), self.start_simulation)
         
         # wait for dialog to close
         self.dialog.grab_set()
         self.parent.wait_window(self.dialog)
 
-    def start_simulation(self):
-        # simulate typing
-        simulate_typing(self.entry, self.simulate_text, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)
+    # def start_simulation(self):
+    #     # simulate typing
+    #     self.start_simulate = True
+    #     simulate_typing(self.entry, self.simulate_text, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)
 
     def on_enter_pressed(self, event):
         # Close the dialog and return the entry value
+
+        # start only after enter pressed
+        if not self.start_simulate:
+            self.start_simulate = True
+            simulate_typing(self.entry, self.simulate_text, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)
+            return
+        
         self.value = self.entry.get()
         if self.value.strip():
             self.dialog.destroy()
@@ -180,6 +189,8 @@ class ChatClient:
         self.root = root
         self.root.title("Chat Application")
         self.root.geometry("400x700")
+
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # font config
         font_config = font.Font(family="Helvetica", size=12)
@@ -350,5 +361,4 @@ class ChatClient:
 if __name__ == "__main__":
     root = tk.Tk()
     app = ChatClient(root)
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()

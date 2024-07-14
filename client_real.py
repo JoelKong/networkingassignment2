@@ -51,6 +51,8 @@ class ChatClient:
         self.root = root
         self.root.title("Chat Application")
         self.root.geometry("400x700")
+        
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # font config
         font_config = font.Font(family="Helvetica", size=12)
@@ -152,5 +154,4 @@ class ChatClient:
 if __name__ == "__main__":
     root = tk.Tk()
     app = ChatClient(root)
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
