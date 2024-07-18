@@ -4,7 +4,9 @@ import tkinter as tk
 from tkinter import font, scrolledtext, messagebox
 
 # Connection Details for TCP connections
-HOST = '127.0.0.1'
+# use '' if using external ip with cloud
+# use '127.0.0.1' if not hosting in cloud
+HOST = ''
 PORT = 12345
 
 # Initializing list of connected clients, aliases, chat history and locks
@@ -12,6 +14,7 @@ clients = []
 aliases = []
 chat_history = []
 lock = threading.Lock()
+server_socket = None
 
 # Function to update GUI with chat history and client list
 def update_gui():
@@ -68,10 +71,11 @@ def handle_client(client):
         
 # Initialisation of server socket and handle client connectionsz
 def initialise_socket():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    global server_socket
     try:
-        server.bind((HOST, PORT))
-        server.listen()
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((HOST, PORT))
+        server_socket.listen()
         print('Server has initialised.')
     except Exception as e:
         print(f"Error initializing server: {e}")
@@ -79,7 +83,7 @@ def initialise_socket():
 
     while True:
         try:
-            client, address = server.accept()
+            client, address = server_socket.accept()
             alias = client.recv(1024).decode('utf-8')
 
             with lock:
@@ -100,11 +104,17 @@ def initialise_socket():
 def start_server():
     threading.Thread(target=initialise_socket, daemon=True).start()
 
+def on_closing():
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        if server_socket:  # Check if server_socket is initialized
+            server_socket.close()  # Close the server socket
+        root.quit()
+
 # GUI Implementation
 root = tk.Tk()
 root.title("Chat Server")
 root.geometry("500x700")
-
+root.protocol("WM_DELETE_WINDOW", on_closing)
 font_config = font.Font(family="Helvetica", size=12)
 
 frame = tk.Frame(root)
@@ -124,12 +134,6 @@ chat_display.pack(fill=tk.BOTH, expand=True)
 
 start_button = tk.Button(root, text="Start Server", command=start_server)
 start_button.pack(pady=5)
-
-def on_closing():
-    if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        root.quit()
-
-root.protocol("WM_DELETE_WINDOW", on_closing)
 
 if __name__ == "__main__":
     root.mainloop()
