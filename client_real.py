@@ -5,7 +5,8 @@ import tkinter as tk
 from tkinter import font, scrolledtext, messagebox
 
 # Connection Details for TCP Connections
-HOST = '127.0.0.1'
+# 127.0.0.1
+HOST = '35.212.224.171'
 PORT = 12345
 
 # GUI for entering name

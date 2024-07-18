@@ -5,7 +5,10 @@ from tkinter import font, scrolledtext, messagebox
 
 # Connection Details for TCP connections
 # use '' if using external ip with cloud
+# server cloud ip address is 35.212.224.171
+
 # use '127.0.0.1' if not hosting in cloud
+# use '' to host using external ip
 HOST = ''
 PORT = 12345
 

@@ -21,7 +21,7 @@ TYPO_CHANCE = 0.06
 FIX_TYPO = True
 
 # Connection Details for TCP Connections
-HOST = '127.0.0.1'
+HOST = '35.212.224.171'
 PORT = 12345
 
 # List of random names for the AI alias
