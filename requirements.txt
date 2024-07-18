@@ -1,4 +1,2 @@
-# add stuff here
-pip install openai
-pip install python-dotenv
-pip install tk
+openai==1.35.14
+python-dotenv==1.0.1
