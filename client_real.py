@@ -55,15 +55,16 @@ class ChatClient:
         
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
+        self.root.state("zoomed")
         # font config
-        font_config = font.Font(family="Helvetica", size=12)
+        font_config = font.Font(family="Helvetica", size=24)
 
         # name label
         self.name_label = tk.Label(root, text="")
         self.name_label.pack(padx=10, pady=5, anchor=tk.W)
 
         # chat scrolled text
-        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, font= font_config)
+        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, height=10, font=font_config)
         self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
         self.chat_display.config(state=tk.DISABLED)
 

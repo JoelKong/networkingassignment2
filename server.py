@@ -33,6 +33,7 @@ def update_gui():
         for message in chat_history:
             chat_display.insert(tk.END,"[*] " + message + "\n")
         chat_display.config(state=tk.DISABLED)
+        chat_display.see(tk.END)
 
 # Broadcast messages to all clients in the chatroom
 def broadcast_messages(message, sender_socket=None, message_type=None):

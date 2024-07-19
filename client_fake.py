@@ -135,6 +135,7 @@ class CustomDialog:
         self.dialog.wm_attributes("-topmost", 1)
 
         
+
         self.label = tk.Label(self.dialog, text="Enter your name")
         self.label.pack(fill='both', pady=20)
         
@@ -188,18 +189,19 @@ class ChatClient:
         self.root = root
         self.root.title("Chat Application")
         self.root.geometry("400x700")
+        self.root.state("zoomed")
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # font config
-        font_config = font.Font(family="Helvetica", size=12)
+        font_config = font.Font(family="Helvetica", size=24)
 
         # name label
         self.name_label = tk.Label(root, text="")
         self.name_label.pack(padx=10, pady=5, anchor=tk.W)
 
         # chat scrolled text
-        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, font=font_config)
+        self.chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, height=10,font=font_config)
         self.chat_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
         self.chat_display.config(state=tk.DISABLED)
 
