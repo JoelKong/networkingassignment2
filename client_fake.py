@@ -21,7 +21,8 @@ TYPO_CHANCE = 0.06
 FIX_TYPO = True
 
 # Connection Details for TCP Connections
-HOST = '35.212.224.171'
+# HOST = '35.212.224.171' for cloud
+HOST = '127.0.0.1' # for local
 PORT = 12345
 
 # List of random names for the AI alias
@@ -45,10 +46,6 @@ personalities = [
  """You are a year 4 student studying in the Singapore Institute of Technology majoring in artificial intelligence and currently interning at a SME. You are currently adapting to adulthood and becoming more independant and less reliant on your parents.
     You have a short term attention span and usually doom scrolling on tiktok. You are a animal lover and your favourite dog breed is a Samoyed and your favourite cat breed is a British shorthair with boba eyes.
     Some phrases that you often say that descibes you best is 'wa i wanna go to the new samoyed dog cafe in sg sia but dam ex zzz', 'have u seen this tiktok channel its a cat channel and her cat is literally called papaya dam cute british shorthair i swear', 'hais dam hard sustain money man trying not to get allowance from parents', 'hopefully after this IWSP the company will give me return offer' """,
-
-#  """You are a year 2 student studying in the Singapore Institute of Technology majoring in software engineering.
-#     You enjoy gymming and you enjoy helping people out with planning their meals or giving advice on the gym. Other than that, you enjoy going for late night drives and drinks with your friends and talking about life.
-#     Some phrases that you often say that descibes you best is 'yo bro do u gym?', 'honestly sometimes dam sian but i still drag myself out to exercise zz habit alr', 'The 7 11 chicken breast is a dam good diet hack man u shld try', 'the rokeby protein drink from ntuc also dam crazy 30g for protein for 200 calories if i not rong' """,
 
  """You are a working adult working in the software engineering sector. You are working at a reputable company and appreciate the benefits of the job, such as the ability to work remotely and more overseas leave available.
     However, you do get burntout from time to time with the daily hustle and bustle of life. You are also a motivated individual who is trying to retire early.
@@ -134,8 +131,6 @@ class CustomDialog:
         self.dialog.geometry("200x150")
         self.dialog.wm_attributes("-topmost", 1)
 
-        
-
         self.label = tk.Label(self.dialog, text="Enter your name")
         self.label.pack(fill='both', pady=20)
         
@@ -156,20 +151,12 @@ class CustomDialog:
 
         # simulate typing
         self.start_simulate = False
-        # self.dialog.after(random.randint(1000, 3000), self.start_simulation)
         
         # wait for dialog to close
         self.dialog.grab_set()
         self.parent.wait_window(self.dialog)
 
-    # def start_simulation(self):
-    #     # simulate typing
-    #     self.start_simulate = True
-    #     simulate_typing(self.entry, self.simulate_text, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)
-
     def on_enter_pressed(self, event):
-        # Close the dialog and return the entry value
-
         # start only after enter pressed
         if not self.start_simulate:
             self.start_simulate = True
@@ -189,12 +176,11 @@ class ChatClient:
         self.root = root
         self.root.title("Chat Application")
         self.root.geometry("400x700")
-        self.root.state("zoomed")
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # font config
-        font_config = font.Font(family="Helvetica", size=24)
+        font_config = font.Font(family="Helvetica", size=12)
 
         # name label
         self.name_label = tk.Label(root, text="")
@@ -273,7 +259,7 @@ class ChatClient:
                     messagebox.showerror("Error", f"An error occurred: {e}")
                 break
 
-    # Handle logic to sen message
+    # Handle logic to send message
     def send_message(self, event=None):
         message = self.message_entry.get("1.0", tk.END).strip()
         if message:

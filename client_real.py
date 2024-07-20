@@ -6,7 +6,8 @@ from tkinter import font, scrolledtext, messagebox
 
 # Connection Details for TCP Connections
 # 127.0.0.1
-HOST = '35.212.224.171'
+# HOST = '35.212.224.171' for cloud
+HOST = '127.0.0.1' # for local
 PORT = 12345
 
 # GUI for entering name
@@ -55,9 +56,8 @@ class ChatClient:
         
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        self.root.state("zoomed")
         # font config
-        font_config = font.Font(family="Helvetica", size=24)
+        font_config = font.Font(family="Helvetica", size=12)
 
         # name label
         self.name_label = tk.Label(root, text="")

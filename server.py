@@ -9,7 +9,8 @@ from tkinter import font, scrolledtext, messagebox
 
 # use '127.0.0.1' if not hosting in cloud
 # use '' to host using external ip
-HOST = ''
+HOST = '127.0.0.1' # locally
+# HOST = '' for cloud
 PORT = 12345
 
 # Initializing list of connected clients, aliases, chat history and locks
