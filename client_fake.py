@@ -149,20 +149,16 @@ class CustomDialog:
         # alias text for ai to input
         self.simulate_text = simulate_text
 
-        # simulate typing
-        self.start_simulate = False
+        self.dialog.after(random.randint(1000, 4000), self.start_simulation)
         
         # wait for dialog to close
         self.dialog.grab_set()
         self.parent.wait_window(self.dialog)
 
-    def on_enter_pressed(self, event):
-        # start only after enter pressed
-        if not self.start_simulate:
-            self.start_simulate = True
-            simulate_typing(self.entry, self.simulate_text, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)
-            return
-        
+    def start_simulation(self):
+        simulate_typing(self.entry, self.simulate_text, MIN_INTERVAL, MAX_INTERVAL, TYPO_CHANCE, FIX_TYPO)   
+
+    def on_enter_pressed(self, event):        
         self.value = self.entry.get()
         if self.value.strip():
             self.dialog.destroy()
